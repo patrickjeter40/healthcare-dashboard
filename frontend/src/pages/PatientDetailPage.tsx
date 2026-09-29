@@ -21,6 +21,7 @@ import {
   DialogContentText,
   DialogTitle,
   Divider,
+  Link,
   Skeleton,
   Stack,
   Typography,
@@ -329,13 +330,13 @@ export function PatientDetailPage() {
                 label="Email"
                 value={
                   record.email ? (
-                    <Box
-                      component="a"
+                    <Link
                       href={`mailto:${record.email}`}
-                      sx={{ color: "primary.main" }}
+                      underline="always"
+                      color="primary"
                     >
                       {record.email}
-                    </Box>
+                    </Link>
                   ) : null
                 }
               />
@@ -344,13 +345,13 @@ export function PatientDetailPage() {
                 label="Phone"
                 value={
                   record.phone ? (
-                    <Box
-                      component="a"
+                    <Link
                       href={`tel:${record.phone}`}
-                      sx={{ color: "primary.main" }}
+                      underline="always"
+                      color="primary"
                     >
                       {record.phone}
-                    </Box>
+                    </Link>
                   ) : null
                 }
               />
