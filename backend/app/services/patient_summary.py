@@ -1,18 +1,24 @@
 """Deterministic patient narrative assembled from current clinical records."""
 
-from app.models import PatientNote
-from app.schemas.patient import PatientRead
+from collections.abc import Sequence
+
+from app.schemas.note import NoteRead
+from app.schemas.patient import PatientRead, ReferenceOption
 
 
-def _terms(values: list[str], label: str) -> str:
+def _terms(values: list[ReferenceOption], label: str) -> str:
     if not values:
         return f"No {label} are documented."
-    return f"Documented {label} include {', '.join(values)}."
+    return f"Documented {label} include {', '.join(value.name for value in values)}."
 
 
-def generate_patient_summary(patient: PatientRead, recent_notes: list[PatientNote]) -> str:
+def generate_patient_summary(patient: PatientRead, recent_notes: Sequence[NoteRead]) -> str:
     name = f"{patient.first_name} {patient.last_name}"
-    blood_type = f" with blood type {patient.blood_type.value}" if patient.blood_type else ""
+    blood_type = (
+        f" with blood type {patient.blood_type.value}"
+        if patient.blood_type
+        else "; blood type is not recorded"
+    )
     overview = f"{name} is {patient.age} years old{blood_type}."
     clinical = " ".join(
         [

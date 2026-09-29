@@ -9,6 +9,7 @@ from sqlalchemy.pool import StaticPool
 from app.database import Base, get_db
 from app.main import app
 from app.models import Patient, PatientAllergy, PatientCondition, PatientNote  # noqa: F401
+from app.seed import seed_catalogs
 
 
 @pytest.fixture
@@ -21,10 +22,17 @@ def client() -> Generator[TestClient]:
 
     @event.listens_for(engine, "connect")
     def add_postgres_trim(dbapi_connection, _connection_record) -> None:
-        dbapi_connection.create_function("btrim", 1, str.strip)
+        dbapi_connection.execute("PRAGMA foreign_keys=ON")
+        dbapi_connection.create_function(
+            "btrim", 1, lambda value: value.strip(" "), deterministic=True
+        )
 
     Base.metadata.create_all(engine)
     session_factory = sessionmaker(bind=engine, autoflush=False, expire_on_commit=False)
+
+    with session_factory() as db:
+        seed_catalogs(db)
+        db.commit()
 
     def test_db() -> Generator[Session]:
         with session_factory() as session:

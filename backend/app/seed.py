@@ -4,9 +4,20 @@ from datetime import date, datetime, timedelta, timezone
 from uuid import NAMESPACE_URL, uuid5
 
 from sqlalchemy import select
+from sqlalchemy.orm import Session
 
 from app.database import SessionLocal
-from app.models import Patient, PatientAllergy, PatientCondition, PatientNote
+from app.models import (
+    Address,
+    Allergen,
+    BloodTypeLookup,
+    Condition,
+    Patient,
+    PatientAllergy,
+    PatientCondition,
+    PatientNote,
+    PatientStatusLookup,
+)
 
 NAMES = [
     ("Avery", "Morgan"),
@@ -51,14 +62,39 @@ NAMES = [
     ("Nico", "Gomez"),
 ]
 
-ALLERGIES = ["penicillin", "peanuts", "latex", "shellfish", "pollen", "sulfa drugs"]
+ALLERGIES = [
+    "Penicillin",
+    "Sulfonamides",
+    "Aspirin",
+    "Ibuprofen",
+    "Latex",
+    "Peanuts",
+    "Tree Nuts",
+    "Shellfish",
+    "Eggs",
+    "Milk",
+    "Soy",
+    "Wheat",
+    "Pollen",
+    "Dust Mites",
+    "Bee Venom",
+]
 CONDITIONS = [
-    "hypertension",
-    "type 2 diabetes",
-    "asthma",
-    "arthritis",
-    "migraine",
-    "hypothyroidism",
+    "Hypertension",
+    "Type 2 Diabetes",
+    "Asthma",
+    "Hyperlipidemia",
+    "Coronary Artery Disease",
+    "Atrial Fibrillation",
+    "Chronic Kidney Disease",
+    "COPD",
+    "Osteoarthritis",
+    "Migraine",
+    "Depression",
+    "Anxiety",
+    "Hypothyroidism",
+    "GERD",
+    "Obesity",
 ]
 BLOOD_TYPES = ["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"]
 CITIES = [("Portland", "OR"), ("Seattle", "WA"), ("Sacramento", "CA"), ("Denver", "CO")]
@@ -69,10 +105,43 @@ NOTE_TEXTS = [
 ]
 
 
+def seed_catalogs(db: Session) -> tuple[dict[str, Allergen], dict[str, Condition]]:
+    for model, codes in (
+        (PatientStatusLookup, ["active", "inactive", "discharged"]),
+        (BloodTypeLookup, BLOOD_TYPES),
+    ):
+        existing_codes = set(db.scalars(select(model.code)))
+        for code in codes:
+            if code not in existing_codes:
+                values = {"code": code}
+                if model is PatientStatusLookup:
+                    values["name"] = code.title()
+                db.add(model(**values))
+    catalogs = []
+    for model, names in ((Allergen, ALLERGIES), (Condition, CONDITIONS)):
+        existing = {item.name: item for item in db.scalars(select(model))}
+        for name in names:
+            # Prefer the canonical label; tolerate older capitalization without adding duplicates.
+            match = existing.get(name) or next(
+                (item for key, item in existing.items() if key.casefold() == name.casefold()), None
+            )
+            if match is None:
+                match = model(name=name)
+                db.add(match)
+                existing[name] = match
+            catalogs.append((model, name, match))
+    db.flush()
+    return (
+        {name: item for model, name, item in catalogs if model is Allergen},
+        {name: item for model, name, item in catalogs if model is Condition},
+    )
+
+
 def seed() -> int:
     now = datetime.now(timezone.utc)
     ids = [uuid5(NAMESPACE_URL, f"healthcare-dashboard-fictional-patient-{i}") for i in range(40)]
     with SessionLocal() as db:
+        allergens, conditions = seed_catalogs(db)
         existing = set(db.scalars(select(Patient.id).where(Patient.id.in_(ids))))
         created = 0
         for index, (first_name, last_name) in enumerate(NAMES):
@@ -87,10 +156,12 @@ def seed() -> int:
                 date_of_birth=date(1938 + (index * 11) % 68, index % 12 + 1, index % 27 + 1),
                 email=f"patient{index + 1:02d}@example.com",
                 phone=f"202-555-{1000 + index:04d}",
-                address_line_1=f"{100 + index} Example Street",
-                city=city,
-                state=state,
-                postal_code=f"{97000 + index:05d}",
+                address=Address(
+                    address_line_1=f"{100 + index} Example Street",
+                    city=city,
+                    state=state,
+                    postal_code=f"{97000 + index:05d}",
+                ),
                 blood_type=BLOOD_TYPES[index % len(BLOOD_TYPES)],
                 status="discharged"
                 if index % 11 == 0
@@ -101,11 +172,13 @@ def seed() -> int:
             )
             for offset in range(index % 3):
                 patient.allergies.append(
-                    PatientAllergy(allergen=ALLERGIES[(index + offset) % len(ALLERGIES)])
+                    PatientAllergy(allergen=allergens[ALLERGIES[(index + offset) % len(ALLERGIES)]])
                 )
             for offset in range((index + 1) % 3):
                 patient.conditions.append(
-                    PatientCondition(condition=CONDITIONS[(index + offset) % len(CONDITIONS)])
+                    PatientCondition(
+                        condition=conditions[CONDITIONS[(index + offset) % len(CONDITIONS)]]
+                    )
                 )
             for offset in range(index % 4):
                 patient.notes.append(

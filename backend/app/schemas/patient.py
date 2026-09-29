@@ -38,8 +38,8 @@ class PatientWrite(BaseModel):
     blood_type: BloodType | None = None
     status: PatientStatus
     last_visit_at: AwareDatetime | None = None
-    allergies: list[str] = Field(default_factory=list, max_length=30)
-    conditions: list[str] = Field(default_factory=list, max_length=30)
+    allergy_ids: list[UUID] = Field(default_factory=list, max_length=30)
+    condition_ids: list[UUID] = Field(default_factory=list, max_length=30)
 
     @field_validator("first_name", "last_name")
     @classmethod
@@ -79,15 +79,19 @@ class PatientWrite(BaseModel):
             raise ValueError("last visit cannot be in the future")
         return value
 
-    @field_validator("allergies", "conditions")
+    @field_validator("allergy_ids", "condition_ids")
     @classmethod
-    def clean_terms(cls, values: list[str]) -> list[str]:
-        cleaned = [value.strip() for value in values]
-        if any(not value or len(value) > 120 for value in cleaned):
-            raise ValueError("each item must contain 1 to 120 characters")
-        if len({value.casefold() for value in cleaned}) != len(cleaned):
-            raise ValueError("duplicate items are not allowed")
-        return cleaned
+    def unique_ids(cls, values: list[UUID]) -> list[UUID]:
+        if len(set(values)) != len(values):
+            raise ValueError("duplicate IDs are not allowed")
+        return values
+
+
+class ReferenceOption(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    name: str
 
 
 class PatientRead(BaseModel):
@@ -108,8 +112,8 @@ class PatientRead(BaseModel):
     last_visit_at: datetime | None
     created_at: datetime
     updated_at: datetime
-    allergies: list[str]
-    conditions: list[str]
+    allergies: list[ReferenceOption]
+    conditions: list[ReferenceOption]
 
 
 class PatientPage(BaseModel):

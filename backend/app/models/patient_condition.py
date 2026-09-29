@@ -1,30 +1,24 @@
-from datetime import datetime
 from typing import TYPE_CHECKING
-from uuid import UUID, uuid4
+from uuid import UUID
 
-from sqlalchemy import CheckConstraint, DateTime, ForeignKey, String, UniqueConstraint, Uuid, func
+from sqlalchemy import ForeignKey, Uuid
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
 
 if TYPE_CHECKING:
+    from app.models.condition import Condition
     from app.models.patient import Patient
 
 
 class PatientCondition(Base):
     __tablename__ = "patient_conditions"
-    __table_args__ = (
-        UniqueConstraint("patient_id", "condition", name="uq_patient_conditions_patient_condition"),
-        CheckConstraint("length(btrim(condition)) > 0", name="condition_not_blank"),
-    )
 
-    id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True, default=uuid4)
     patient_id: Mapped[UUID] = mapped_column(
-        Uuid(as_uuid=True), ForeignKey("patients.id"), nullable=False, index=True
+        Uuid(as_uuid=True), ForeignKey("patients.id"), primary_key=True
     )
-    condition: Mapped[str] = mapped_column(String(120), nullable=False)
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), nullable=False, server_default=func.now()
+    condition_id: Mapped[UUID] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("conditions.id"), primary_key=True
     )
-
     patient: Mapped["Patient"] = relationship(back_populates="conditions")
+    condition: Mapped["Condition"] = relationship(lazy="joined")
