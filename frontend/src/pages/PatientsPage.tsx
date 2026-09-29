@@ -2,7 +2,6 @@ import ArrowForwardRoundedIcon from "@mui/icons-material/ArrowForwardRounded";
 import PeopleAltOutlinedIcon from "@mui/icons-material/PeopleAltOutlined";
 import PersonAddAlt1RoundedIcon from "@mui/icons-material/PersonAddAlt1Rounded";
 import SearchRoundedIcon from "@mui/icons-material/SearchRounded";
-import SwapVertRoundedIcon from "@mui/icons-material/SwapVertRounded";
 import {
   Alert,
   Avatar,
@@ -26,6 +25,7 @@ import {
   TableHead,
   TablePagination,
   TableRow,
+  TableSortLabel,
   TextField,
   Tooltip,
   Typography,
@@ -44,11 +44,11 @@ import { PatientStatusChip } from "../components/PatientStatusChip";
 import { useDebouncedValue } from "../hooks/useDebouncedValue";
 import { formatDate, patientName } from "../utils/format";
 
-const sortOptions: { value: PatientSortBy; label: string }[] = [
+const sortableColumns: { value: PatientSortBy; label: string }[] = [
+  { value: "name", label: "Patient" },
+  { value: "date_of_birth", label: "Age" },
   { value: "last_visit_at", label: "Last visit" },
-  { value: "name", label: "Name" },
   { value: "status", label: "Status" },
-  { value: "created_at", label: "Date added" },
 ];
 
 function PatientAvatar({ patient }: { patient: Patient }) {
@@ -84,12 +84,45 @@ export function PatientsPage() {
     ],
     queryFn: ({ signal }) =>
       getPatients(
-        { page, pageSize, search, status: statusFilter, sortBy, sortOrder },
+        {
+          page,
+          pageSize,
+          search,
+          status: statusFilter,
+          sortBy,
+          // Earlier birth dates mean greater age, so reverse the API direction.
+          sortOrder:
+            sortBy === "date_of_birth"
+              ? sortOrder === "asc"
+                ? "desc"
+                : "asc"
+              : sortOrder,
+        },
         signal,
       ),
     placeholderData: keepPreviousData,
     staleTime: 30_000,
   });
+
+  function sortControl(column: (typeof sortableColumns)[number]) {
+    const active = sortBy === column.value;
+    const nextDirection = active && sortOrder === "asc" ? "desc" : "asc";
+    return (
+      <TableSortLabel
+        active={active}
+        direction={active ? sortOrder : "asc"}
+        aria-label={`Sort ${column.label.toLowerCase()} ${nextDirection === "asc" ? "ascending" : "descending"}`}
+        onClick={() => {
+          setSortBy(column.value);
+          setSortOrder(nextDirection);
+          setPage(1);
+        }}
+        sx={{ "& .MuiTableSortLabel-icon": { opacity: active ? 1 : 0.4 } }}
+      >
+        {column.label}
+      </TableSortLabel>
+    );
+  }
 
   const hasFilters = Boolean(search || statusFilter);
   const items = patients.data?.items ?? [];
@@ -185,48 +218,6 @@ export function PatientsPage() {
                 <MenuItem value="discharged">Discharged</MenuItem>
               </Select>
             </FormControl>
-            <FormControl
-              size="small"
-              sx={{ minWidth: 150, flex: { xs: "1 1 140px", sm: "0 0 auto" } }}
-            >
-              <InputLabel id="sort-by-label">Sort by</InputLabel>
-              <Select
-                labelId="sort-by-label"
-                label="Sort by"
-                inputProps={{ "aria-label": "Sort by" }}
-                value={sortBy}
-                onChange={(event) => {
-                  setSortBy(event.target.value as PatientSortBy);
-                  setPage(1);
-                }}
-              >
-                {sortOptions.map((option) => (
-                  <MenuItem key={option.value} value={option.value}>
-                    {option.label}
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-            <Tooltip
-              title={sortOrder === "asc" ? "Sort descending" : "Sort ascending"}
-            >
-              <IconButton
-                aria-label={
-                  sortOrder === "asc" ? "Sort descending" : "Sort ascending"
-                }
-                onClick={() => {
-                  setSortOrder(sortOrder === "asc" ? "desc" : "asc");
-                  setPage(1);
-                }}
-                sx={{
-                  border: "1px solid",
-                  borderColor: "divider",
-                  borderRadius: 2,
-                }}
-              >
-                <SwapVertRoundedIcon />
-              </IconButton>
-            </Tooltip>
           </Box>
 
           <Box sx={{ minHeight: 25, mb: 1 }}>
@@ -296,20 +287,22 @@ export function PatientsPage() {
                 <Table aria-label="Patients" size="medium">
                   <TableHead>
                     <TableRow sx={{ bgcolor: "#F7FAFB" }}>
-                      {["Patient", "Age", "Last visit", "Status", ""].map(
-                        (heading) => (
-                          <TableCell
-                            key={heading}
-                            sx={{
-                              fontWeight: 700,
-                              color: "text.secondary",
-                              whiteSpace: "nowrap",
-                            }}
-                          >
-                            {heading}
-                          </TableCell>
-                        ),
-                      )}
+                      {sortableColumns.map((column) => (
+                        <TableCell
+                          key={column.value}
+                          sortDirection={
+                            sortBy === column.value ? sortOrder : false
+                          }
+                          sx={{
+                            fontWeight: 700,
+                            color: "text.secondary",
+                            whiteSpace: "nowrap",
+                          }}
+                        >
+                          {sortControl(column)}
+                        </TableCell>
+                      ))}
+                      <TableCell aria-label="Actions" />
                     </TableRow>
                   </TableHead>
                   <TableBody>
@@ -376,6 +369,20 @@ export function PatientsPage() {
                 </Table>
               </TableContainer>
 
+              <Box
+                role="group"
+                aria-label="Sort patients"
+                sx={{
+                  display: { xs: "flex", md: "none" },
+                  flexWrap: "wrap",
+                  gap: 2,
+                  mb: 2,
+                }}
+              >
+                {sortableColumns.map((column) => (
+                  <Box key={column.value}>{sortControl(column)}</Box>
+                ))}
+              </Box>
               <Stack spacing={1.5} sx={{ display: { xs: "flex", md: "none" } }}>
                 {items.map((patient) => (
                   <Box

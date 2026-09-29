@@ -18,51 +18,33 @@ import {
   TextField,
   Typography,
 } from "@mui/material";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
-import {
-  addPatientNote,
-  deletePatientNote,
-  getPatientNotes,
-  getPatientSummary,
-} from "../api/client";
 import type { PatientNote } from "../api/types";
-import { formatDate } from "../utils/format";
+import { usePatientNotes } from "../hooks/usePatientNotes";
+import { formatDateTime } from "../utils/format";
+
+function localTimestamp(): string {
+  const now = new Date();
+  return new Date(now.getTime() - now.getTimezoneOffset() * 60_000)
+    .toISOString()
+    .slice(0, 16);
+}
 
 export function PatientNotesAndSummary({ patientId }: { patientId: string }) {
-  const queryClient = useQueryClient();
   const [draft, setDraft] = useState("");
+  const [recordedAt, setRecordedAt] = useState(localTimestamp);
+  const [timestampError, setTimestampError] = useState("");
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [noteToDelete, setNoteToDelete] = useState<PatientNote | null>(null);
-  const notes = useQuery({
-    queryKey: ["patient-notes", patientId],
-    queryFn: ({ signal }) => getPatientNotes(patientId, signal),
-  });
-  const summary = useQuery({
-    queryKey: ["patient-summary", patientId],
-    queryFn: ({ signal }) => getPatientSummary(patientId, signal),
-  });
-  const addNote = useMutation({
-    mutationFn: (content: string) => addPatientNote(patientId, content),
-  });
-  const removeNote = useMutation({
-    mutationFn: (noteId: string) => deletePatientNote(patientId, noteId),
-  });
-
-  async function refresh() {
-    await Promise.all([
-      queryClient.invalidateQueries({ queryKey: ["patient-notes", patientId] }),
-      queryClient.invalidateQueries({
-        queryKey: ["patient-summary", patientId],
-      }),
-    ]);
-  }
+  const { notes, summary, addNote, removeNote, refresh } =
+    usePatientNotes(patientId);
 
   async function submitNote(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError("");
     setNotice("");
+    setTimestampError("");
     const content = draft.trim();
     if (!content) {
       setError("Enter a note before adding it.");
@@ -72,9 +54,22 @@ export function PatientNotesAndSummary({ patientId }: { patientId: string }) {
       setError("Use 5,000 characters or fewer.");
       return;
     }
+    const timestamp = new Date(recordedAt);
+    if (!recordedAt || Number.isNaN(timestamp.getTime())) {
+      setTimestampError("Enter a valid recorded date and time.");
+      return;
+    }
+    if (timestamp.getTime() > Date.now()) {
+      setTimestampError("Recorded date and time cannot be in the future.");
+      return;
+    }
     try {
-      await addNote.mutateAsync(content);
+      await addNote.mutateAsync({
+        content,
+        recorded_at: timestamp.toISOString(),
+      });
       setDraft("");
+      setRecordedAt(localTimestamp());
       await refresh();
       setNotice("Note added.");
     } catch (cause) {
@@ -149,10 +144,28 @@ export function PatientNotesAndSummary({ patientId }: { patientId: string }) {
             Clinical notes
           </Typography>
           <Typography variant="body2" color="text.secondary" sx={{ mb: 2.5 }}>
-            Recent notes appear first. Removed notes remain stored for audit
-            purposes.
+            Recent notes appear first. Removed notes remain stored.
           </Typography>
-          <Box component="form" onSubmit={submitNote} sx={{ mb: 3 }}>
+          <Box component="form" noValidate onSubmit={submitNote} sx={{ mb: 3 }}>
+            <TextField
+              label="Recorded at"
+              type="datetime-local"
+              required
+              value={recordedAt}
+              onChange={(event) => {
+                setRecordedAt(event.target.value);
+                setTimestampError("");
+              }}
+              error={Boolean(timestampError)}
+              helperText={
+                timestampError ||
+                "Enter your local time. Notes are stored and displayed in UTC."
+              }
+              slotProps={{ inputLabel: { shrink: true } }}
+              fullWidth
+              size="small"
+              sx={{ mb: 2 }}
+            />
             <TextField
               label="Add a note"
               value={draft}
@@ -238,14 +251,14 @@ export function PatientNotesAndSummary({ patientId }: { patientId: string }) {
                     }}
                   >
                     <Typography variant="caption" color="text.secondary">
-                      {formatDate(note.recorded_at, "UTC")} UTC
+                      {formatDateTime(note.recorded_at)}
                     </Typography>
                     <Button
                       size="small"
                       color="error"
                       startIcon={<DeleteOutlineRoundedIcon />}
                       onClick={() => setNoteToDelete(note)}
-                      aria-label={`Remove note from ${formatDate(note.recorded_at, "UTC")} UTC`}
+                      aria-label={`Remove note from ${formatDateTime(note.recorded_at)}`}
                     >
                       Remove
                     </Button>
@@ -273,7 +286,7 @@ export function PatientNotesAndSummary({ patientId }: { patientId: string }) {
         <DialogContent>
           <DialogContentText>
             This note will disappear from the active record and summary. It will
-            remain stored for audit purposes.
+            remain stored.
           </DialogContentText>
         </DialogContent>
         <DialogActions sx={{ px: 3, pb: 2.5 }}>

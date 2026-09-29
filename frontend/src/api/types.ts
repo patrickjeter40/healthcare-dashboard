@@ -4,6 +4,11 @@ export type PatientSortBy =
   "name" | "date_of_birth" | "last_visit_at" | "created_at" | "status";
 export type SortOrder = "asc" | "desc";
 
+export interface ReferenceOption {
+  id: string;
+  name: string;
+}
+
 export interface Patient {
   id: string;
   first_name: string;
@@ -22,8 +27,8 @@ export interface Patient {
   last_visit_at: string | null;
   created_at: string;
   updated_at: string;
-  allergies: string[];
-  conditions: string[];
+  allergies: ReferenceOption[];
+  conditions: ReferenceOption[];
 }
 
 export interface PatientPage {
@@ -35,8 +40,8 @@ export interface PatientPage {
 
 export type PatientWrite = Omit<
   Patient,
-  "id" | "age" | "created_at" | "updated_at"
->;
+  "id" | "age" | "created_at" | "updated_at" | "allergies" | "conditions"
+> & { allergy_ids: string[]; condition_ids: string[] };
 
 export interface PatientListParams {
   page: number;
@@ -45,6 +50,11 @@ export interface PatientListParams {
   status: PatientStatus | "";
   sortBy: PatientSortBy;
   sortOrder: SortOrder;
+}
+
+export interface NoteWrite {
+  content: string;
+  recorded_at?: string;
 }
 
 export interface PatientNote {

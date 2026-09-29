@@ -18,12 +18,10 @@ function validDate(value: string): boolean {
 }
 
 const clinicalTerms = z
-  .array(z.string().trim().min(1).max(120))
+  .array(z.uuid())
   .max(30, "Use 30 items or fewer")
   .refine(
-    (values) =>
-      new Set(values.map((value) => value.toLocaleLowerCase())).size ===
-      values.length,
+    (values) => new Set(values).size === values.length,
     "Remove duplicate items",
   );
 
@@ -63,8 +61,8 @@ export const patientSchema = z.object({
         new Date(value) <= new Date(),
       "Last visit cannot be in the future",
     ),
-  allergies: clinicalTerms,
-  conditions: clinicalTerms,
+  allergy_ids: clinicalTerms,
+  condition_ids: clinicalTerms,
 });
 
 export type PatientFormValues = z.infer<typeof patientSchema>;
@@ -91,8 +89,8 @@ export function patientFormDefaults(patient?: Patient): PatientFormValues {
     blood_type: patient?.blood_type ?? "",
     status: patient?.status ?? "active",
     last_visit_at: lastVisit,
-    allergies: patient?.allergies ?? [],
-    conditions: patient?.conditions ?? [],
+    allergy_ids: patient?.allergies.map((item) => item.id) ?? [],
+    condition_ids: patient?.conditions.map((item) => item.id) ?? [],
   };
 }
 
@@ -114,7 +112,7 @@ export function toPatientWrite(values: PatientFormValues): PatientWrite {
     last_visit_at: values.last_visit_at
       ? new Date(values.last_visit_at).toISOString()
       : null,
-    allergies: values.allergies,
-    conditions: values.conditions,
+    allergy_ids: values.allergy_ids,
+    condition_ids: values.condition_ids,
   };
 }

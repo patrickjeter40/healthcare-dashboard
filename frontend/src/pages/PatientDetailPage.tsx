@@ -29,6 +29,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { Link as RouterLink, useNavigate, useParams } from "react-router-dom";
 import { ApiError, deletePatient, getPatient } from "../api/client";
+import type { ReferenceOption } from "../api/types";
 import { PatientStatusChip } from "../components/PatientStatusChip";
 import { PatientNotesAndSummary } from "../components/PatientNotesAndSummary";
 import { formatDate, patientName } from "../utils/format";
@@ -72,7 +73,7 @@ function ClinicalList({
   emptyMessage,
 }: {
   title: string;
-  terms: string[];
+  terms: ReferenceOption[];
   emptyMessage: string;
 }) {
   return (
@@ -90,8 +91,8 @@ function ClinicalList({
           >
             {terms.map((term) => (
               <Chip
-                key={term}
-                label={term}
+                key={term.id}
+                label={term.name}
                 sx={{ bgcolor: "#EBF5F4", color: "#235C58", fontWeight: 600 }}
               />
             ))}
@@ -403,7 +404,7 @@ export function PatientDetailPage() {
           emptyMessage="No conditions documented."
         />
       </Box>
-      <PatientNotesAndSummary patientId={record.id} />
+      <PatientNotesAndSummary key={record.id} patientId={record.id} />
       <Dialog
         open={confirmOpen}
         onClose={() => !removePatient.isPending && setConfirmOpen(false)}

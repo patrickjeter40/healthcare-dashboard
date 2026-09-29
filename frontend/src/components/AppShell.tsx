@@ -5,6 +5,7 @@ import PeopleAltRoundedIcon from "@mui/icons-material/PeopleAltRounded";
 import {
   Alert,
   Box,
+  Button,
   Chip,
   Drawer,
   IconButton,
@@ -141,27 +142,6 @@ export function AppShell() {
           );
         })}
       </List>
-
-      <Box sx={{ mt: "auto", p: 3 }}>
-        <Box
-          sx={{
-            p: 2,
-            borderRadius: 2.5,
-            bgcolor: "#224854",
-            border: "1px solid #345B66",
-          }}
-        >
-          <Typography variant="body2" sx={{ fontWeight: 700, mb: 0.4 }}>
-            Patient care, clearly organized
-          </Typography>
-          <Typography
-            variant="caption"
-            sx={{ color: "#B3CCD1", lineHeight: 1.5 }}
-          >
-            Your patient panel in one place.
-          </Typography>
-        </Box>
-      </Box>
     </Box>
   );
 
@@ -222,11 +202,37 @@ export function AppShell() {
               Patient workspace
             </Typography>
           </Box>
-          <Chip
-            label="Fictional data"
-            size="small"
-            sx={{ bgcolor: "#E7F5F1", color: "#176C63", fontWeight: 700 }}
-          />
+          <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
+            <Box
+              component="nav"
+              aria-label="Header navigation"
+              sx={{ display: { xs: "none", md: "flex" }, gap: 1 }}
+            >
+              <Button
+                component={RouterLink}
+                to="/"
+                color="inherit"
+                aria-current={location.pathname === "/" ? "page" : undefined}
+              >
+                Overview
+              </Button>
+              <Button
+                component={RouterLink}
+                to="/patients"
+                color="inherit"
+                aria-current={
+                  location.pathname.startsWith("/patients") ? "page" : undefined
+                }
+              >
+                Patients
+              </Button>
+            </Box>
+            <Chip
+              label="Fictional data"
+              size="small"
+              sx={{ bgcolor: "#E7F5F1", color: "#176C63", fontWeight: 700 }}
+            />
+          </Box>
         </Box>
         <Box
           component="main"

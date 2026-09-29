@@ -21,6 +21,7 @@ import { Link as RouterLink, useNavigate } from "react-router-dom";
 import { ApiError, createPatient, updatePatient } from "../api/client";
 import type { Patient } from "../api/types";
 import { patientName } from "../utils/format";
+import { useAllergens, useConditions } from "../hooks/useReferenceData";
 import { MultiValueInput } from "./MultiValueInput";
 import {
   patientFormDefaults,
@@ -31,7 +32,7 @@ import type { PatientFormValues } from "./patientSchema";
 
 type TextFieldName = Exclude<
   keyof PatientFormValues,
-  "allergies" | "conditions"
+  "allergy_ids" | "condition_ids"
 >;
 
 function FormTextField({
@@ -118,6 +119,8 @@ function FormSection({
 }
 
 export function PatientForm({ patient }: { patient?: Patient }) {
+  const allergens = useAllergens();
+  const conditions = useConditions();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [submitError, setSubmitError] = useState("");
@@ -137,12 +140,39 @@ export function PatientForm({ patient }: { patient?: Patient }) {
 
   async function submit(values: PatientFormValues) {
     setSubmitError("");
+    if (
+      !allergens.data ||
+      !conditions.data ||
+      allergens.isError ||
+      conditions.isError
+    ) {
+      setSubmitError("Load the allergy and condition catalogs before saving.");
+      return;
+    }
+    let invalid = false;
+    for (const [field, options] of [
+      ["allergy_ids", allergens.data],
+      ["condition_ids", conditions.data],
+    ] as const) {
+      if (
+        values[field].some((id) => !options.some((option) => option.id === id))
+      ) {
+        form.setError(field, {
+          message: "Select values from the loaded catalog.",
+        });
+        invalid = true;
+      }
+    }
+    if (invalid) return;
     try {
       const saved = await mutation.mutateAsync(values);
       queryClient.setQueryData(["patient", saved.id], saved);
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ["patients"] }),
         queryClient.invalidateQueries({ queryKey: ["dashboard-overview"] }),
+        queryClient.invalidateQueries({
+          queryKey: ["patient-summary", saved.id],
+        }),
       ]);
       navigate(`/patients/${saved.id}`, {
         state: { notice: patient ? "Patient updated." : "Patient created." },
@@ -169,6 +199,37 @@ export function PatientForm({ patient }: { patient?: Patient }) {
         setSubmitError("Something went wrong. Please try again.");
       }
     }
+  }
+
+  if (allergens.isError || conditions.isError) {
+    return (
+      <Alert
+        severity="error"
+        action={
+          <Button
+            color="inherit"
+            onClick={() => {
+              void allergens.refetch();
+              void conditions.refetch();
+            }}
+          >
+            Retry
+          </Button>
+        }
+      >
+        Cannot load allergy and condition catalogs. The form is unavailable
+        until both catalogs load.{" "}
+        {allergens.error?.message ?? conditions.error?.message}
+      </Alert>
+    );
+  }
+  if (allergens.isPending || conditions.isPending) {
+    return (
+      <Box role="status" sx={{ display: "flex", gap: 2, alignItems: "center" }}>
+        <CircularProgress size={24} />
+        Loading allergy and condition catalogs...
+      </Box>
+    );
   }
 
   const cancelTo = patient ? `/patients/${patient.id}` : "/patients";
@@ -325,7 +386,7 @@ export function PatientForm({ patient }: { patient?: Patient }) {
 
         <FormSection
           title="Clinical information"
-          description="Add documented allergies and conditions individually or as a comma-separated group."
+          description="Select documented allergies and conditions from the reference catalogs."
         >
           <Box
             sx={{
@@ -338,11 +399,14 @@ export function PatientForm({ patient }: { patient?: Patient }) {
             }}
           >
             <Controller
-              name="allergies"
+              name="allergy_ids"
               control={form.control}
               render={({ field, fieldState }) => (
                 <MultiValueInput
                   label="Allergies"
+                  options={allergens.data}
+                  onBlur={field.onBlur}
+                  inputRef={field.ref}
                   value={field.value}
                   onChange={field.onChange}
                   error={fieldState.error?.message}
@@ -350,11 +414,14 @@ export function PatientForm({ patient }: { patient?: Patient }) {
               )}
             />
             <Controller
-              name="conditions"
+              name="condition_ids"
               control={form.control}
               render={({ field, fieldState }) => (
                 <MultiValueInput
                   label="Conditions"
+                  options={conditions.data}
+                  onBlur={field.onBlur}
+                  inputRef={field.ref}
                   value={field.value}
                   onChange={field.onChange}
                   error={fieldState.error?.message}

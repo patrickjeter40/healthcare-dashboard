@@ -1,7 +1,9 @@
 import type {
+  ReferenceOption,
   Patient,
   PatientListParams,
   PatientNote,
+  NoteWrite,
   PatientPage,
   PatientSummary,
   PatientWrite,
@@ -134,11 +136,11 @@ export function getPatientNotes(
 
 export function addPatientNote(
   id: string,
-  content: string,
+  data: NoteWrite,
 ): Promise<PatientNote> {
   return request<PatientNote>(`/patients/${encodeURIComponent(id)}/notes`, {
     method: "POST",
-    body: { content },
+    body: data,
   });
 }
 
@@ -157,4 +159,14 @@ export function getPatientSummary(
     `/patients/${encodeURIComponent(id)}/summary`,
     { signal },
   );
+}
+
+export function getAllergens(signal?: AbortSignal): Promise<ReferenceOption[]> {
+  return request<ReferenceOption[]>("/allergens", { signal });
+}
+
+export function getConditions(
+  signal?: AbortSignal,
+): Promise<ReferenceOption[]> {
+  return request<ReferenceOption[]>("/conditions", { signal });
 }
