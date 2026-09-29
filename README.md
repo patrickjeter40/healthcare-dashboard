@@ -99,4 +99,4 @@ On macOS/Linux, use `.venv/bin/python` and `.venv/bin/ruff` in place of the Wind
 
 Authentication, roles, tenant isolation, clinical terminology integration, full audit history, restore/purge controls, real-time updates, and LLM summaries are outside this exercise. Transactions prevent partial writes; optimistic locking and concurrent edit/delete protection are not implemented. Query services explicitly depend on SQLAlchemy, a pragmatic choice for one database.
 
-Submit the public repository or a source ZIP. Exclude `.env`, dependencies, caches, and local database files; keep `.env.example`. The original specification is in [takehome_requirements.md](takehome_requirements.md).
+Submit the public repository or a source ZIP. Exclude `.env`, dependencies, caches, and local database files; keep `.env.example`.
