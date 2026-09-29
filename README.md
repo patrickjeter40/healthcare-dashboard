@@ -40,7 +40,7 @@ Stretch highlights are server-side sorting/filtering and lazy route loading. Sea
 - **Lifecycle:** Patient/note deletion is soft deletion. Removed patients return 404; related records remain stored. Clearing a clinical selection deletes its join row. Empty selections mean nothing documented, rather than a confirmed negative assessment.
 - **Summary:** A deterministic template assembles current profile data and recent notes on request. It requires no external credentials and stores no duplicate derived state. Note input uses local time; the form converts it to a timezone-aware timestamp, and note displays use UTC.
 
-See [architecture and data design](docs/architecture.md) for SOLID tradeoffs, timestamp/concurrency semantics, and indexing decisions; [migration history](docs/migrations.md) for preservation and downgrade details; and [schema.dbml](schema.dbml) for the current schema. Alembic remains the schema source of truth.
+See [architecture and data design](docs/architecture.md) for SOLID tradeoffs, timestamp/concurrency semantics, and indexing decisions; [migration history](docs/migrations.md) for preservation and downgrade details; and [schema.dbml](schema.dbml) for the current schema. View the interactive [database diagram on dbdiagram.io](https://dbdiagram.io/d/Health-Dashboard-Ascertain-6abc2b4c5869425612d0e062). Alembic remains the schema source of truth.
 
 ## API
 
