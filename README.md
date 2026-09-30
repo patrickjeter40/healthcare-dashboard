@@ -34,11 +34,19 @@ Stretch highlights are server-side sorting/filtering and lazy route loading. Sea
 
 ## Architecture and decisions
 
-- **Frontend:** TanStack Query owns server data and cache invalidation; React Hook Form and Zod handle forms. MUI supplies responsive components, while React Router handles navigation. Oxlint and Prettier provide linting/formatting. Both TypeScript configurations are strict, and the production build runs typechecking first.
+- **Frontend:** TanStack Query owns server data and cache invalidation; React Hook Form and Zod handle forms, and React state owns local UI interactions. MUI supplies responsive components, while React Router handles navigation. Oxlint and Prettier provide linting/formatting. Both TypeScript configurations are strict, and the production build runs typechecking first.
 - **Backend:** Routers handle HTTP contracts and inject database sessions; application services handle queries and transactional workflows. Shared exceptions map to HTTP responses. The summary generator consumes read DTOs, without database or HTTP dependencies.
-- **Data:** Patients have an optional separate address, required status lookup, and optional blood-type lookup. Allergies/conditions use UUID catalogs and composite-key joins. Foreign keys, uniqueness/check constraints, and validation enforce integrity. DOB is stored; age is calculated on read.
+- **Data:** Patients have an optional separate address, required status lookup, and optional blood-type lookup. All reference catalogs use UUID identities and creation timestamps; API status/blood-type codes remain unchanged. Allergies/conditions use UUID catalogs and composite-key joins. Foreign keys, uniqueness/check constraints, and validation enforce integrity. DOB is stored; age is calculated on read.
 - **Lifecycle:** Patient/note deletion is soft deletion. Removed patients return 404; related records remain stored. Clearing a clinical selection deletes its join row. Empty selections mean nothing documented, rather than a confirmed negative assessment.
-- **Summary:** A deterministic template assembles current profile data and recent notes on request. It requires no external credentials and stores no duplicate derived state. Note input uses local time; the form converts it to a timezone-aware timestamp, and note displays use UTC.
+- **Summary:** A deterministic template assembles current profile data and recent notes on request. It requires no external credentials and stores no duplicate derived state. Note input and display use the browser's local timezone, with a timezone label. The form sends a UTC timestamp; dates in the server-generated summary use UTC.
+
+### State management
+
+TanStack Query manages server-owned patient and reference data, including caching and synchronization after mutations. React Hook Form manages form drafts and validation, while local React state handles component-level interactions. An additional global client-state store is intentionally omitted because the current workflows do not require one.
+
+For future features requiring shared client-only state across routes, such as a multi-patient review workspace, I would evaluate Zustand. Its responsibility would remain separate from the server-data cache, avoiding duplicate ownership of patient records.
+
+Redux Toolkit would be an alternative if cross-feature client logic or team conventions warranted a more standardized action/reducer architecture. The choice would follow a concrete requirement rather than application size alone.
 
 See [architecture and data design](docs/architecture.md) for SOLID tradeoffs, timestamp/concurrency semantics, and indexing decisions; [migration history](docs/migrations.md) for preservation and downgrade details; and [schema.dbml](schema.dbml) for the current schema. View the interactive [database diagram on dbdiagram.io](https://dbdiagram.io/d/Health-Dashboard-Ascertain-6abc2b4c5869425612d0e062). Alembic remains the schema source of truth.
 

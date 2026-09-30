@@ -2,7 +2,7 @@
 
 Detailed design decisions for contributors. For setup and the feature overview, see the [README](../README.md).
 
-**Frontend.** React, TypeScript, Vite, MUI, and React Router provide the responsive interface. TanStack Query handles remote data, caching, mutations, and invalidation. Most meaningful state lives on the server, so Redux would add a second source of truth without solving a current problem. React Hook Form and Zod power a shared create/edit form; FastAPI/Pydantic validation remains authoritative. The small typed `fetch` client maps backend errors to readable messages and field errors.
+**Frontend.** React, TypeScript, Vite, MUI, and React Router provide the responsive interface. TanStack Query handles remote data, caching, mutations, and invalidation. React state owns local interactions such as dialogs, filters, and note drafts. There is currently no substantial cross-page client workflow state that needs a global store. React Hook Form and Zod power a shared create/edit form; FastAPI/Pydantic validation remains authoritative. The small typed `fetch` client maps backend errors to readable messages and field errors.
 
 **Frontend development tooling.** Oxlint provides linting (`npm run lint`), and Prettier provides formatting (`npm run format`) and a formatting check (`npm run format:check`). Both the application and Vite configuration use TypeScript with `strict: true`. The separate `npm run typecheck` command runs `tsc -b --pretty false` without emitting JavaScript. Vite transpiles TypeScript but does not type-check it; `npm run build` explicitly runs `tsc -b` before `vite build`, so type errors fail the build.
 
@@ -38,4 +38,16 @@ The current PostgreSQL schema is documented in [schema.dbml](../schema.dbml), in
 
 Patient addresses are stored in `addresses`, with a unique, required `patient_id`: each patient has zero or one current mailing address. Partial addresses remain valid. Address changes update the same row, clearing all fields removes it, and patient soft deletion retains it. Addresses are patient-owned rather than shared between households; address history is outside scope.
 
-`patient_statuses` and `blood_types` are seeded lookup tables. Patients reference their stable natural code keys through foreign keys: status is required, blood type is optional (`NULL` means not recorded). Status labels are separate from codes; blood type codes already serve as display labels. These small, immutable code sets do not need synthetic UUID keys. The API continues accepting and returning existing status/blood type codes and flat address fields, while persistence is normalized. Adding new codes requires updating API validation and UI options as well as lookup data. Revision `20260929_05` preserves all existing addresses, including soft-deleted patients; downgrade restores the original flat fields.
+`patient_statuses` and `blood_types` use UUID surrogate keys, unique codes, and `created_at` metadata, consistently with allergens and conditions. Patients store a required `status_id` and optional `blood_type_id`; the API still accepts and returns codes. NULL blood type means not recorded. Status labels are separate from codes; blood type codes serve as their display labels.
+
+Natural code keys were considered and initially used: the standardized blood type codes and small fixed status vocabulary make natural keys defensible. UUID keys were chosen for consistency across lookup entities, stable identity independent of code changes, and uniform creation metadata. Existing rows receive creation timestamps at migration time because their original insertion times were not stored. Adding supported codes still requires coordinated changes to API validation and UI options.
+
+## State management growth path
+
+TanStack Query remains the owner of server data as the application grows. For shared client-only state across routes, such as a multi-patient review workspace, Zustand would be the first option to evaluate. Patient records, notes, and other cached server responses should remain in the query cache rather than being duplicated in a client-state store. Form values and validation stay in React Hook Form; small component interactions stay in local React state.
+
+Redux Toolkit remains an alternative if cross-feature client logic or team conventions warrant a standardized action/reducer architecture. A concrete requirement would drive the choice, rather than application size alone. No additional global client-state store is currently implemented.
+
+Real-time WebSocket or server-sent events can update or invalidate query entries. A future implementation should handle reconnects, missed events, and cache refreshes. Search, filters, and pagination can move into URL parameters when preserving or sharing navigation state becomes a requirement.
+
+Multiple user types require backend-enforced permissions. User and permission data can be fetched through TanStack Query, while the interface adapts to permitted actions. Account or practice switches must clear or partition cached data to prevent reuse across identities. These future capabilities are not implemented by the take-home.
