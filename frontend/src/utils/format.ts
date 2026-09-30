@@ -24,7 +24,6 @@ export function formatDateTime(value: string): string {
     year: "numeric",
     hour: "numeric",
     minute: "2-digit",
-    timeZone: "UTC",
     timeZoneName: "short",
   }).format(new Date(value));
 }

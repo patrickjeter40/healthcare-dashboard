@@ -159,7 +159,7 @@ export function PatientNotesAndSummary({ patientId }: { patientId: string }) {
               error={Boolean(timestampError)}
               helperText={
                 timestampError ||
-                "Enter your local time. Notes are stored and displayed in UTC."
+                "Enter your local time. Notes display in your local timezone."
               }
               slotProps={{ inputLabel: { shrink: true } }}
               fullWidth
