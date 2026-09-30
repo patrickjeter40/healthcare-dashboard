@@ -130,7 +130,11 @@ export function PatientNotesAndSummary({ patientId }: { patientId: string }) {
           ) : (
             <Typography
               variant="body2"
-              sx={{ whiteSpace: "pre-line", lineHeight: 1.8 }}
+              sx={{
+                whiteSpace: "pre-line",
+                lineHeight: 1.8,
+                overflowWrap: "anywhere",
+              }}
             >
               {summary.data.summary}
             </Typography>

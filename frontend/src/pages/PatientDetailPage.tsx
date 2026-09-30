@@ -271,7 +271,9 @@ export function PatientDetailPage() {
               {record.first_name[0]}
               {record.last_name[0]}
             </Avatar>
-            <Box sx={{ flexGrow: 1 }}>
+            <Box
+              sx={{ flex: "1 1 200px", minWidth: 0, overflowWrap: "anywhere" }}
+            >
               <Typography
                 variant="overline"
                 color="primary"

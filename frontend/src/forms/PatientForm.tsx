@@ -252,7 +252,7 @@ export function PatientForm({ patient }: { patient?: Patient }) {
         >
           PATIENT RECORD
         </Typography>
-        <Typography variant="h4" sx={{ mt: 0.5 }}>
+        <Typography variant="h4" sx={{ mt: 0.5, overflowWrap: "anywhere" }}>
           {patient ? `Edit ${patientName(patient)}` : "Add patient"}
         </Typography>
         <Typography color="text.secondary" sx={{ mt: 1 }}>
