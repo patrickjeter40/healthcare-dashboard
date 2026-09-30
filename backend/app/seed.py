@@ -142,6 +142,8 @@ def seed() -> int:
     ids = [uuid5(NAMESPACE_URL, f"healthcare-dashboard-fictional-patient-{i}") for i in range(40)]
     with SessionLocal() as db:
         allergens, conditions = seed_catalogs(db)
+        statuses = {item.code: item for item in db.scalars(select(PatientStatusLookup))}
+        blood_types = {item.code: item for item in db.scalars(select(BloodTypeLookup))}
         existing = set(db.scalars(select(Patient.id).where(Patient.id.in_(ids))))
         created = 0
         for index, (first_name, last_name) in enumerate(NAMES):
@@ -162,12 +164,10 @@ def seed() -> int:
                     state=state,
                     postal_code=f"{97000 + index:05d}",
                 ),
-                blood_type=BLOOD_TYPES[index % len(BLOOD_TYPES)],
-                status="discharged"
-                if index % 11 == 0
-                else "inactive"
-                if index % 5 == 0
-                else "active",
+                blood_type=blood_types[BLOOD_TYPES[index % len(BLOOD_TYPES)]],
+                status=statuses[
+                    "discharged" if index % 11 == 0 else "inactive" if index % 5 == 0 else "active"
+                ],
                 last_visit_at=None if index % 9 == 0 else now - timedelta(days=index * 9 + 2),
             )
             for offset in range(index % 3):

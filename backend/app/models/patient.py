@@ -11,6 +11,7 @@ if TYPE_CHECKING:
     from app.models.address import Address
     from app.models.patient_allergy import PatientAllergy
     from app.models.patient_condition import PatientCondition
+    from app.models.patient_lookup import BloodTypeLookup, PatientStatusLookup
     from app.models.patient_note import PatientNote
 
 
@@ -27,10 +28,14 @@ class Patient(Base):
     date_of_birth: Mapped[date] = mapped_column(Date, nullable=False)
     email: Mapped[str | None] = mapped_column(String(320))
     phone: Mapped[str | None] = mapped_column(String(40))
-    blood_type: Mapped[str | None] = mapped_column(String(3), ForeignKey("blood_types.code"))
-    status: Mapped[str] = mapped_column(
-        String(20), ForeignKey("patient_statuses.code"), nullable=False, default="active"
+    blood_type_id: Mapped[UUID | None] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("blood_types.id")
     )
+    status_id: Mapped[UUID] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("patient_statuses.id"), nullable=False
+    )
+    blood_type: Mapped["BloodTypeLookup | None"] = relationship(lazy="joined")
+    status: Mapped["PatientStatusLookup"] = relationship(lazy="joined")
     address: Mapped["Address | None"] = relationship(
         back_populates="patient", cascade="all, delete-orphan", lazy="joined", uselist=False
     )

@@ -13,3 +13,9 @@ The `20260929_04` migration adds normalized unique indexes, trims surrounding sp
 Revision `20260929_05` moves nonempty patient addresses into a separate patient-owned table and replaces status/blood-type CHECK constraints with foreign keys to seeded lookup tables. It preserves partial addresses and values for both active and soft-deleted patients. Patients without address data have no address row. Status and blood-type codes and the API's flat address fields remain unchanged.
 
 Downgrade copies address fields back into patients, restores the original status/blood-type checks, and removes the new tables. Any extra lookup codes added outside the supported API contract must satisfy the original checks before downgrade can succeed.
+
+## Consistent lookup identities
+
+Revision `20260929_06` gives blood types and patient statuses UUID surrogate primary keys, unique code constraints, and `created_at` metadata. It maps every existing patient reference, including soft-deleted patients, to the corresponding UUID. Unknown blood types remain NULL. API codes, status labels, and addresses are unchanged. Existing lookup timestamps reflect migration time; original creation times were unavailable.
+
+Natural keys were considered defensible for these fixed code sets. Surrogate keys were selected for consistency with allergens and conditions. Downgrade restores patient code foreign keys and code primary keys, then removes UUIDs and creation metadata.

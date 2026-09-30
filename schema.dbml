@@ -1,4 +1,4 @@
-// Current PostgreSQL schema after Alembic revision 20260929_05.
+// Current PostgreSQL schema after Alembic revision 20260929_06.
 // Documentation only: Alembic remains the source of truth for database changes.
 
 Project healthcare_dashboard {
@@ -13,8 +13,8 @@ Table patients {
   date_of_birth date [not null, note: 'Age is calculated on read. Future dates are rejected by application validation.']
   email varchar(320) [null, note: 'Intentionally nonunique; patients may share contact details.']
   phone varchar(40) [null]
-  blood_type varchar(3) [null]
-  status varchar(20) [not null, note: 'Application default: active. No database default; references patient_statuses.code.']
+  blood_type_id uuid [null]
+  status_id uuid [not null, note: 'Required lookup identity; API accepts stable status codes. No database default.']
   last_visit_at timestamptz [null, note: 'Application requires timezone-aware input and rejects future visits.']
   created_at timestamptz [not null, default: `now()`]
   updated_at timestamptz [not null, default: `now()`, note: 'Updated by SQLAlchemy/API patient edits and soft deletion. No database update trigger; note changes do not advance this timestamp.']
@@ -121,7 +121,7 @@ Table alembic_version {
     version_num [pk, name: 'alembic_version_pkc']
   }
 
-  Note: 'Migration bookkeeping; the current migration chain has one head: 20260929_05.'
+  Note: 'Migration bookkeeping; the current migration chain has one head: 20260929_06.'
 }
 
 // Actual database foreign keys use NO ACTION, not ON DELETE CASCADE.
@@ -148,23 +148,29 @@ Table addresses {
 }
 
 Table patient_statuses {
+  id uuid [not null, note: 'Application-generated UUID.']
+  created_at timestamptz [not null, default: `now()`]
   code varchar(20) [not null]
   name varchar(40) [not null]
   indexes {
-    code [pk, name: 'pk_patient_statuses']
+    id [pk, name: 'pk_patient_statuses']
+    code [unique, name: 'uq_patient_statuses_code']
     name [unique, name: 'uq_patient_statuses_name']
   }
-  Note: 'Stable natural keys: active, inactive, discharged. Shared lookup; API accepts these codes.'
+  Note: 'UUID identity with unique codes: active, inactive, discharged. API accepts codes.'
 }
 
 Table blood_types {
+  id uuid [not null, note: 'Application-generated UUID.']
+  created_at timestamptz [not null, default: `now()`]
   code varchar(3) [not null]
   indexes {
-    code [pk, name: 'pk_blood_types']
+    id [pk, name: 'pk_blood_types']
+    code [unique, name: 'uq_blood_types_code']
   }
   Note: 'Eight standard ABO/Rh codes are seeded. NULL on patients means not recorded; no unknown sentinel.'
 }
 
 Ref fk_addresses_patient_id_patients: addresses.patient_id - patients.id [delete: no action, update: no action]
-Ref fk_patients_status_patient_statuses: patients.status > patient_statuses.code [delete: no action, update: no action]
-Ref fk_patients_blood_type_blood_types: patients.blood_type > blood_types.code [delete: no action, update: no action]
+Ref fk_patients_status_id_patient_statuses: patients.status_id > patient_statuses.id [delete: no action, update: no action]
+Ref fk_patients_blood_type_id_blood_types: patients.blood_type_id > blood_types.id [delete: no action, update: no action]

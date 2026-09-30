@@ -353,6 +353,39 @@ def test_postgres_address_lookup_migration_roundtrip():
                     ),
                     {"id": uuid4(), "patient": identifiers[0]},
                 )
+            surrogate = load_revision("20260929_06_lookup_surrogate_keys.py")
+            surrogate.op = operations
+            surrogate.upgrade()
+            for table, count in (("patient_statuses", 3), ("blood_types", 8)):
+                populated = connection.scalar(
+                    sa.text(
+                        f"SELECT count(*) FROM {table} "
+                        "WHERE id IS NOT NULL AND created_at IS NOT NULL"
+                    )
+                )
+                assert populated == count
+                with pytest.raises(sa.exc.IntegrityError), connection.begin_nested():
+                    connection.execute(sa.text(f"UPDATE {table} SET code='A+'"))
+            mapped = (
+                connection.execute(
+                    sa.text(
+                        "SELECT p.id, s.code AS status, b.code AS blood FROM patients p "
+                        "JOIN patient_statuses s ON p.status_id=s.id "
+                        "LEFT JOIN blood_types b ON p.blood_type_id=b.id"
+                    )
+                )
+                .mappings()
+                .all()
+            )
+            by_patient = {row["id"]: row for row in mapped}
+            for index, identifier in enumerate(identifiers):
+                assert (
+                    by_patient[identifier]["status"] == ("active", "inactive", "discharged")[index]
+                )
+                assert by_patient[identifier]["blood"] == ("AB-" if index < 2 else None)
+            with pytest.raises(sa.exc.IntegrityError), connection.begin_nested():
+                connection.execute(sa.text("UPDATE patients SET status_id=:id"), {"id": uuid4()})
+            surrogate.downgrade()
             revision.downgrade()
             rows = (
                 connection.execute(sa.text("SELECT id, city, blood_type, status FROM patients"))

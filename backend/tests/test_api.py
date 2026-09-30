@@ -9,7 +9,14 @@ from sqlalchemy.orm import sessionmaker
 
 from app.database import get_db
 from app.main import app
-from app.models import Allergen, Condition, Patient, PatientAllergy, PatientCondition
+from app.models import (
+    Allergen,
+    Condition,
+    Patient,
+    PatientAllergy,
+    PatientCondition,
+    PatientStatusLookup,
+)
 from app.seed import seed_catalogs
 
 
@@ -327,7 +334,11 @@ def test_directory_over_100_patients_uses_bounded_queries(client: TestClient) ->
                     first_name=f"Sample{index:03d}",
                     last_name="Directory",
                     date_of_birth=date(1980, 1, 1),
-                    status="active" if index % 2 == 0 else "inactive",
+                    status=db.scalar(
+                        select(PatientStatusLookup).where(
+                            PatientStatusLookup.code == ("active" if index % 2 == 0 else "inactive")
+                        )
+                    ),
                 )
                 for index in range(125)
             ]
@@ -389,14 +400,14 @@ def test_address_lifecycle_and_lookup_foreign_keys(client):
         assert address_id is not None
         assert "city" not in Patient.__table__.columns
         assert (
-            list(Patient.__table__.c.status.foreign_keys)[0].target_fullname
-            == "patient_statuses.code"
+            list(Patient.__table__.c.status_id.foreign_keys)[0].target_fullname
+            == "patient_statuses.id"
         )
         assert (
-            list(Patient.__table__.c.blood_type.foreign_keys)[0].target_fullname
-            == "blood_types.code"
+            list(Patient.__table__.c.blood_type_id.foreign_keys)[0].target_fullname
+            == "blood_types.id"
         )
-        for field, invalid in (("status", "unknown"), ("blood_type", "X+")):
+        for field, invalid in (("status_id", uuid4()), ("blood_type_id", uuid4())):
             with pytest.raises(IntegrityError), db.begin_nested():
                 db.execute(
                     Patient.__table__.update()
@@ -476,3 +487,27 @@ def test_api_conflict_response_does_not_leak_database_errors(client, monkeypatch
     response = client.post("/patients", json=patient_data(client))
     assert response.status_code == 409
     assert response.json() == {"detail": "Data conflicts with an existing record"}
+
+
+def test_lookup_ids_metadata_seed_and_status_sort(client):
+    from app.models import BloodTypeLookup
+
+    with next(app.dependency_overrides[get_db]()) as db:
+        before = {}
+        for model, expected in ((PatientStatusLookup, 3), (BloodTypeLookup, 8)):
+            values = list(db.scalars(select(model)))
+            assert len(values) == expected
+            assert all(isinstance(item.id, UUID) and item.created_at is not None for item in values)
+            before[model] = {item.code: item.id for item in values}
+        seed_catalogs(db)
+        db.commit()
+        for model in before:
+            assert {item.code: item.id for item in db.scalars(select(model))} == before[model]
+    for code in ("inactive", "active", "discharged"):
+        create_patient(client, status=code)
+    for order in ("asc", "desc"):
+        response = client.get("/patients", params={"sort_by": "status", "sort_order": order})
+        assert response.status_code == 200
+        assert [item["status"] for item in response.json()["items"]] == sorted(
+            ["inactive", "active", "discharged"], reverse=order == "desc"
+        )

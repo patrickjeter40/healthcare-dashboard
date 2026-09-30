@@ -6,7 +6,16 @@ from uuid import UUID
 from sqlalchemy import Select, asc, desc, func, or_, select
 from sqlalchemy.orm import Session
 
-from app.models import Address, Allergen, Condition, Patient, PatientAllergy, PatientCondition
+from app.models import (
+    Address,
+    Allergen,
+    BloodTypeLookup,
+    Condition,
+    Patient,
+    PatientAllergy,
+    PatientCondition,
+    PatientStatusLookup,
+)
 from app.schemas.patient import (
     PatientPage,
     PatientRead,
@@ -14,7 +23,7 @@ from app.schemas.patient import (
     PatientWrite,
     ReferenceOption,
 )
-from app.services.errors import NotFoundError, ReferenceValidationError
+from app.services.errors import ConflictError, NotFoundError, ReferenceValidationError
 from app.services.transactions import commit_or_conflict
 
 
@@ -46,8 +55,8 @@ def patient_read(patient: Patient) -> PatientRead:
         city=patient.address.city if patient.address else None,
         state=patient.address.state if patient.address else None,
         postal_code=patient.address.postal_code if patient.address else None,
-        blood_type=patient.blood_type,
-        status=patient.status,
+        blood_type=patient.blood_type.code if patient.blood_type else None,
+        status=patient.status.code,
         last_visit_at=patient.last_visit_at,
         created_at=patient.created_at,
         updated_at=patient.updated_at,
@@ -86,14 +95,24 @@ def apply_patient_write(db: Session, patient: Patient, data: PatientWrite) -> No
     # Both catalogs are validated before any scalar or relationship is changed.
     allergens = referenced_values(db, data.allergy_ids, Allergen, "allergy_ids")
     conditions = referenced_values(db, data.condition_ids, Condition, "condition_ids")
+    patient_status = db.scalar(
+        select(PatientStatusLookup).where(PatientStatusLookup.code == data.status.value)
+    )
+    blood_type = (
+        db.scalar(select(BloodTypeLookup).where(BloodTypeLookup.code == data.blood_type.value))
+        if data.blood_type
+        else None
+    )
+    if patient_status is None or (data.blood_type and blood_type is None):
+        raise ConflictError("Required lookup data is unavailable")
+    patient.status = patient_status
+    patient.blood_type = blood_type
     for field in (
         "first_name",
         "last_name",
         "date_of_birth",
         "email",
         "phone",
-        "blood_type",
-        "status",
         "last_visit_at",
     ):
         value = getattr(data, field)
@@ -130,7 +149,7 @@ def list_patients(
 ) -> PatientPage:
     filters = [Patient.deleted_at.is_(None)]
     if status_filter is not None:
-        filters.append(Patient.status == status_filter.value)
+        filters.append(Patient.status.has(PatientStatusLookup.code == status_filter.value))
     if search and search.strip():
         pattern = f"%{escaped_search(search.strip())}%"
         filters.append(
@@ -144,6 +163,12 @@ def list_patients(
     total = db.scalar(select(func.count()).select_from(Patient).where(*filters)) or 0
     if sort_by == "name":
         columns = (func.lower(Patient.last_name), func.lower(Patient.first_name))
+    elif sort_by == "status":
+        columns = (
+            select(PatientStatusLookup.code)
+            .where(PatientStatusLookup.id == Patient.status_id)
+            .scalar_subquery(),
+        )
     else:
         columns = (getattr(Patient, sort_by),)
     order = asc if sort_order == "asc" else desc
