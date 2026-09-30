@@ -91,6 +91,7 @@ python -m venv .venv
 # From frontend/
 npm ci
 npm run format:check
+npm test
 npm run typecheck
 npm run lint
 npm run build

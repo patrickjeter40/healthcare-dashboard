@@ -94,7 +94,10 @@ export function patientFormDefaults(patient?: Patient): PatientFormValues {
   };
 }
 
-export function toPatientWrite(values: PatientFormValues): PatientWrite {
+export function toPatientWrite(
+  values: PatientFormValues,
+  originalPatient?: Patient,
+): PatientWrite {
   const optional = (value: string): string | null => value || null;
   return {
     first_name: values.first_name,
@@ -109,9 +112,15 @@ export function toPatientWrite(values: PatientFormValues): PatientWrite {
     postal_code: optional(values.postal_code),
     blood_type: values.blood_type || null,
     status: values.status,
-    last_visit_at: values.last_visit_at
-      ? new Date(values.last_visit_at).toISOString()
-      : null,
+    // Keep sub-minute precision when the displayed visit field was not changed.
+    last_visit_at:
+      originalPatient &&
+      values.last_visit_at ===
+        patientFormDefaults(originalPatient).last_visit_at
+        ? originalPatient.last_visit_at
+        : values.last_visit_at
+          ? new Date(values.last_visit_at).toISOString()
+          : null,
     allergy_ids: values.allergy_ids,
     condition_ids: values.condition_ids,
   };

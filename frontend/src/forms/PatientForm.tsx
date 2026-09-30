@@ -131,7 +131,7 @@ export function PatientForm({ patient }: { patient?: Patient }) {
   });
   const mutation = useMutation({
     mutationFn: (values: PatientFormValues) => {
-      const payload = toPatientWrite(values);
+      const payload = toPatientWrite(values, patient);
       return patient
         ? updatePatient(patient.id, payload)
         : createPatient(payload);
